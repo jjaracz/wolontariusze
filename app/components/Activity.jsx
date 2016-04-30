@@ -9,6 +9,19 @@ var ActivityStore = require('../stores/Activity')
 var TimeService = require('../modules/time/TimeService.js')
 var actions = require('../actions')
 
+var ProfileDetails = function(props) {
+  return (
+    <p className="text--center">
+      <img src={props.profile_picture_url} className="profileMedium" /><br />
+      <span>
+        <NavLink href={'/wolontariusz/'+ props.id}>
+          {props.first_name} {props.last_name}
+        </NavLink>
+      </span>
+    </p>
+  )
+}
+
 var Activity = React.createClass({
 
   getInitialState: function () {
@@ -132,31 +145,36 @@ var Activity = React.createClass({
 
     var actType = function () {
       switch(activity.act_type) {
-        case 'dalem_dla_sdm':
-          return 'Dałem dla ŚDM'
-        case 'wzialem_od_sdm':
-          return 'Wziąłęm od ŚDM'
-        default:
-          return 'Niezdefiniowany'
+      case 'wzialem_od_sdm':
+        return 'Wziąłęm od ŚDM'
+      default:
+        return 'Dałem dla ŚDM'
       }
     }()
-    
+
     var tags = this.state.activity.tags || []
     var tagsList = tags.map(function(tag) {
       return (
         <span className="activityTagLabel" key={tag}>{tag}</span>
       )
     })
-    
-    var startTime
-    if (typeof (this.state.activity.datetime) != 'undefined')  {
-      startTime = TimeService.showTime(activity.datetime) 
+
+    var applicationTime
+    if (TimeService.isDate(this.state.activity.datetime))  {
+      applicationTime = TimeService.showTime(activity.datetime)
     } else {
-      startTime = 'Nieokreślony'
+      applicationTime = 'Nieokreślony'
     }
-    
+
+    var endTime
+    if (TimeService.isDate(this.state.activity.endtime))  {
+      endTime = TimeService.showTime(activity.endtime)
+    } else {
+      endTime = 'Nieokreślona'
+    }
+
     var is_archived = (activity.is_archived) ? 'Tak' : 'Nie'
-    
+
     var priority = (activity.is_urgent) ? (<span className="urgent">PILNE</span>) : (<span clssName="normal">NORMALNE</span>)
 
     var volunteers = this.state.volunteers
@@ -165,7 +183,7 @@ var Activity = React.createClass({
     var activeVolonteersList = volunteers.map(function(volunteer) {
       return (
         <span className="volonteerLabel" key={volunteer.id}>
-          <NavLink href={'/wolontariusz/'+volunteer.user_id} className="tooltip--bottom" data-hint={volunteer.first_name +" "+ volunteer.last_name} >
+          <NavLink href={'/wolontariusz/'+volunteer.user_id} className="tooltip--bottom" data-hint={volunteer.first_name +' '+ volunteer.last_name} >
             <ProfilePic src={volunteer.profile_picture_url} className='profileThumbnail' />
           </NavLink>
         </span>
@@ -192,8 +210,8 @@ var Activity = React.createClass({
       'ITALIC': ['<i>', '</i>'],
       'UNDERLINE': ['<u>', '</u>'],
       'CODE': ['<span style="font-family: monospace">', '</span>'],
-    }).map(function(block) {
-      return (<p dangerouslySetInnerHTML={{__html: block}} />)
+    }).map(function(block, i) {
+      return (<p key={'block_'+i} dangerouslySetInnerHTML={{__html: block}} />)
     })
 
     var updateForm
@@ -219,14 +237,14 @@ var Activity = React.createClass({
 
     var updates = []
     if(this.state.activity.updates) {
-      updates = this.state.activity.updates.map(function(update) {
+      updates = this.state.activity.updates.map(function(update, i) {
         var html = backdraft(update.raw, {
           'BOLD': ['<strong>', '</strong>'],
           'ITALIC': ['<i>', '</i>'],
           'UNDERLINE': ['<u>', '</u>'],
           'CODE': ['<span style="font-family: monospace">', '</span>'],
-        }).map(function(block) {
-          return (<p dangerouslySetInnerHTML={{__html: block}} />)
+        }).map(function(block, j) {
+          return (<p key={'update_'+i+'_'+j} dangerouslySetInnerHTML={{__html: block}} />)
         })
         return (
           <div className="activityUpdate">
@@ -248,6 +266,8 @@ var Activity = React.createClass({
         </div>
       )
     }
+
+    var creator = activity.created_by || {}
 
     // TODO
     //<b>Dodano:</b> {TimeService.showTime(activity.creationTimestamp)} przez <span className="volonteerLabel"><a href={'/wolontariusz/'+activity.creator.id}>{activity.creator.name}</a></span>
@@ -272,9 +292,9 @@ var Activity = React.createClass({
             </div>
             <div className="col col5">
               <p className="text--center activity-image">
-                <img src={activity.created_by.profile_picture_url} /><br />
-                <NavLink href={"/wolontariusz/"+ activity.created_by.id}>
-                  {activity.created_by.first_name} {activity.created_by.last_name}
+                <img src={creator.profile_picture_url} /><br />
+                <NavLink href={'/wolontariusz/'+ creator.id}>
+                  {creator.first_name} {creator.last_name}
                 </NavLink>
               </p>
               <table className="table--hoverRow activity-table">
@@ -292,15 +312,15 @@ var Activity = React.createClass({
                     <td>{activity.place}</td>
                   </tr>
                   <tr>
-                    <td scope="Rozpoczęcie">Rozpoczęcie</td>
-                    <td>{startTime}</td>
+                    <td scope="Rozpoczęcie">Czas zakończenia zgłoszeń do zadania</td>
+                    <td>{applicationTime}</td>
                   </tr>
                   <tr>
-                    <td scope="Czas">Czas</td>
-                    <td>{activity.duration}</td>
+                    <td scope="Czas">Data zakończenia</td>
+                    <td>{endTime}</td>
                   </tr>
                   <tr>
-                    <td scope="Archiwum ?">Archwium ?</td>
+                    <td scope="Archiwalne">Archiwalne</td>
                     <td>{is_archived}</td>
                   </tr>
                   <tr>
@@ -329,22 +349,6 @@ var Activity = React.createClass({
     )
   }
 })
-              // <b>Typ:</b> {actType}
-              // <br></br>
-              // <b>Kategorie:</b> {tagsList}
-              // <br></br>
-              // <b>Miejsce wydarzenia:</b> {activity.place}
-              // <br></br>
-              // <b>Czas rozpoczęcia:</b> {startTime}
-              // <br></br>
-              // <b>Czas trwania:</b> {activity.duration}
-              // <br></br>
-              // <b>Jest w archiwum?:</b> {is_archived}
-              // <br></br>
-              // <b>Prorytet:</b> {priority}
-              // <br></br>
-              // <b>Limit(maksymalna liczba wolontariuszy):</b> {volonteersLimit}
-              // <br></br>
 
 /* Module.exports instead of normal dom mounting */
 module.exports = Activity

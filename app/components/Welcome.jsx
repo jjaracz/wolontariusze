@@ -1,5 +1,7 @@
 var React = require('react')
+var NavLink = require('fluxible-router').NavLink
 var navigateAction = require('fluxible-router').navigateAction
+var Formsy = require('formsy-react')
 
 var Password = require('./Settings/Password.jsx')
 var MyCheckbox = require('./Formsy/MyCheckbox.jsx')
@@ -8,6 +10,10 @@ var VolunteerStore = require('../stores/Volunteer')
 var Disclamer = require('./Settings/Disclamer.jsx')
 
 var Welcome = React.createClass({
+
+  propTypes: {
+    context: React.PropTypes.object
+  },
 
   getInitialState: function () {
     return {
@@ -74,7 +80,7 @@ var Welcome = React.createClass({
                 id="cb1"
                 name="cb1" value={false} />
               <label htmlFor="cb1">
-                Regulamin serwisu Góra Dobra
+                Regulamin serwisu Góra Dobra <NavLink href="/regulamin">(kliknij tutaj aby przeczytać)</NavLink>
               </label>
 
             </div>
@@ -85,7 +91,7 @@ var Welcome = React.createClass({
                 name="cb2" value={false} />
 
               <label htmlFor="cb2">
-                Oświadczenie o wyrażeniu zgody na wykorzystanie wizerunku 
+                Oświadczenie o wyrażeniu zgody na wykorzystanie wizerunku
               </label>
 
               <p>
