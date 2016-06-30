@@ -6,13 +6,16 @@ var IntegrationsStore = require('../../stores/Integrations')
 var BasicInfo = require('./BasicInfo.jsx')
 var ProfileSettings = require('./ProfileSettings.jsx')
 var MyTextarea = require('./../Formsy/MyTextarea.jsx')
-var InstagramSetting = require('./InstagramSetting.jsx')
 
 var Integration = function(props) {
   return (<li>Aplikacja: <b>{props.name}</b></li>)
 }
 
 var Settings = React.createClass({
+
+  propTypes: {
+    context: React.PropTypes.object
+  },
 
   getInitialState: function () {
     return {
@@ -64,6 +67,11 @@ var Settings = React.createClass({
       return (<Integration name={integration.name} key={integration.id} />)
     })
 
+    var state_formsy = false
+    if(this.state.profile.who_question && this.state.profile.what_question && this.state.profile.why_question){
+      state_formsy = true
+    }
+
     return (
       <div>
 
@@ -73,7 +81,8 @@ var Settings = React.createClass({
           profileId={this.state.profile.id}
           context={this.props.context}
           success={this.state.success}
-          error={this.state.error}>
+          error={this.state.error}
+          state_formsy={state_formsy}>
 
           <label htmlFor="first_name">
             <h2>Kim jestem?</h2>
@@ -83,7 +92,7 @@ var Settings = React.createClass({
             id="who_question"
             name="who_question"
             placeholder=""
-            value={this.state.profile.who_question}
+            value={this.state.profile.who_question || ""}
             validations={{
               maxLength: 500
             }}
@@ -99,7 +108,7 @@ var Settings = React.createClass({
             id="what_question"
             name="what_question"
             placeholder=""
-            value={this.state.profile.what_question}
+            value={this.state.profile.what_question || ""}
             validations={{
               maxLength: 500
             }}
@@ -115,7 +124,7 @@ var Settings = React.createClass({
             id="why_question"
             name="why_question"
             placeholder=""
-            value={this.state.profile.why_question}
+            value={this.state.profile.why_question || ""}
             validations={{
               maxLength: 500
             }}
@@ -125,17 +134,13 @@ var Settings = React.createClass({
 
         </ProfileSettings>
 
-        <h1>
+        <h1 className="header-text">
           Aplikacje
         </h1>
 
         <div className="container">
           <div className="row">
             <div className="col col7">
-              <p>Lista integracji:</p>
-              <ul>
-                <li><InstagramSetting context={this.props.context} /></li>
-              </ul>
               <p>Lista aplikacji:</p>
               <ul>
                 {integrations}
@@ -143,11 +148,6 @@ var Settings = React.createClass({
               <NavLink href="/ustawienia/developer">Dla deweloperów</NavLink>
             </div>
             <div className="col col5">
-              <div className="alert">
-                <p>
-                  Informacja o tym jakie są możliwe integracje.
-                </p>
-              </div>
             </div>
           </div>
         </div>

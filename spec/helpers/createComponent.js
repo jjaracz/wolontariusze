@@ -5,13 +5,14 @@ var routes = require('../../app/routes')
 var RouteStore = require('fluxible-router').RouteStore;
 var ApplicationStore = require('../../app/stores/ApplicationStore')
 var VolunteerStore = require('../../app/stores/Volunteer')
+var ActivitiesStore = require('../../app/stores/Activities')
 
 var passportPlugin = require('../../app/plugins/passportPlugin')
 
 var Application = require('../../app/components/TestApplication.jsx')
 
 // material-ui wymaga tej zmiennej globalnej
-GLOBAL.navigator = {userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/46.0.2490.80 Safari/537.36'}
+global.navigator = {userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/46.0.2490.80 Safari/537.36'}
 
 // Assing global variable
 createComponent = function(component, props, children) {
@@ -36,7 +37,8 @@ createComponent = function(component, props, children) {
     stores: [
       RouteStore.withStaticRoutes(routes),
       ApplicationStore,
-      VolunteerStore
+      VolunteerStore,
+      ActivitiesStore,
     ]
   })
 

@@ -1,71 +1,113 @@
 var React = require('react')
 var NavLink = require('fluxible-router').NavLink
+var ProfilePic = require('../ProfilePic.jsx')
 
-var VolunteerStore = require('../../stores/Volunteer')
-
-var actions = require('../../actions')
+var ActivitiesStore = require('../../stores/Activities.js')
 
 var Volunteer = React.createClass({
 
+  propTypes: {
+    children: React.PropTypes.element,
+    context: React.PropTypes.object,
+    profile: React.PropTypes.object
+  },
+
+  getInitialState: function () {
+    // TODO ActivitiesStore nie zawsze jest zainicjalizowany
+    return {
+      activities: this.props.context.getStore(ActivitiesStore).dehydrate()
+    }
+  },
+
+  _changeListener: function() {
+    this.setState({
+      activities: this.props.context.getStore(ActivitiesStore).dehydrate()
+    })
+  },
+
+  componentDidMount: function() {
+    this.props.context.getStore(ActivitiesStore)
+      .addChangeListener(this._changeListener)
+  },
+
+  componentWillUnmount: function() {
+    this.props.context.getStore(ActivitiesStore)
+      .removeChangeListener(this._changeListener)
+  },
+
+
   render: function () {
     var user = this.user()
+    // TODO: to nie są wszystkie aktywności, tylko 10 ostatnich
+    var all = this.state.activities ? this.state.activities.all : []
 
     var email
     var tabs = [
-      <NavLink key="profile" href={"/wolontariusz/" + this.props.profile.id} className="profile-ribon-cell">
+      <NavLink key="profile" href={'/wolontariusz/' + this.props.profile.id} className="profile-ribon-cell">
         <b id="profile-ribon-txt">Profil</b>
       </NavLink>,
-      <NavLink key="activities" href={"/wolontariusz/" + this.props.profile.id +'/aktywnosci'} className="profile-ribon-cell">
+      <NavLink key="activities" href={'/wolontariusz/' + this.props.profile.id +'/aktywnosci'} className="profile-ribon-cell">
         <b id="profile-ribon-txt">Aktywności</b>
       </NavLink>
-    ] 
+    ]
 
     if(user) {
       tabs.push(
-        <NavLink key="schedule" href={"/wolontariusz/" + this.props.profile.id +'/grafik'} className="profile-ribon-cell">
+        <NavLink key="schedule" href={'/wolontariusz/' + this.props.profile.id +'/grafik'} className="profile-ribon-cell">
           <b id="profile-ribon-txt">Grafik</b>
         </NavLink>
       )
       if(user.is_admin) {
         tabs.push(
-          <NavLink key="details" href={"/wolontariusz/" + this.props.profile.id +'/admin'} className="profile-ribon-cell">
+          <NavLink key="details" href={'/wolontariusz/' + this.props.profile.id +'/admin'} className="profile-ribon-cell">
             <b id="profile-ribon-txt">Szczegóły</b>
           </NavLink>
         )
 
         email = (
-          <h2>
+          <h3>
             <b>E-mail: </b>
             <span>
-              <a href={"mailto:"+ this.props.profile.email} target="_blank">
+              <a href={'mailto:'+ this.props.profile.email} target="_blank" id="prolife-data-mail">
                 {this.props.profile.email}
               </a>
             </span>
-          </h2>
+          </h3>
         )
       }
     }
 
     var tags
     if(this.props.profile.tags) {
-      tags = (<h2><b>Tagi:</b> <span>{ this.props.profile.tags.join(', ') }</span></h2>)
+      tags = (<div className="row">
+                <p className="prolife-stone-header">PROJEKTY</p>
+                <img className="prolife-stone-img" src="/img/homepage/bialy_tag.svg" />
+                <span id="stone-tag" className="prolife-stone-text">{ this.props.profile.tags.join(', ') }</span>
+              </div>)
     }
 
     return (
-      <div className="volonteer">
-        <div className="section row">
-          <div className="col col6">
-            <img src={this.props.profile.profile_picture_url} id="prolife-photo" />
+      <div className="volunteer">
+        <section className="section row vcard">
+          <div className="col col4">
+            <ProfilePic src={this.props.profile.profile_picture_url} className="prolife-photo" />
           </div>
-          <div className="col col6">
+          <div className="col col4 prolife-data">
             <h1 className="profile-name">{this.name()}</h1>
-            <h2><b>Kraj:</b> <span>{ this.props.profile.nationality || 'Polska' }</span></h2>
-            {tags}
+            <h3><b>Kraj:</b> <span>{ this.props.profile.nationality || 'Polska' }</span></h3>
             {email}
           </div>
-        </div>
+          <div className="col col4 prolife-stone">
+              <div className="row">
+                <p className="prolife-stone-header">WYKONANE ZADANIA</p>
+                <img className="prolife-stone-img" src="/img/homepage/biale_buty.svg" />
+                <span className="prolife-stone-text prolife-stone-number">{all.length}</span>
+              </div>
+              {tags}
+          </div>
+        </section>
 
-        <div className="section row">
+        <div className="profile-row row">
           <div className="col col12 profile-ribon">
             {tabs}
           </div>
@@ -74,23 +116,6 @@ var Volunteer = React.createClass({
         {this.props.children}
       </div>
     )
-          //<div className="col span_1_of_4">
-            //<p id="profile-grow-title"><b>Lorem sprawił/a, że Góra Dobra urosła o</b></p>
-          //</div>
-          //<div className="col span_1_of_4" id="profile-stone-box">
-            //<img src="/img/profile/stone.svg" id="prolife-stone-img" />
-            //<p id="profile-stone-tasks">
-              //<b id="profile-stone-tasks-nr">100</b><br />
-              //<b>zadań</b>
-            //</p>
-          //</div>
-
-          //<div className="col span_2_of_4">
-            //<img src="/img/profile/phone.svg" id="prolife-contant-ico"/>
-            //<div>
-              //<h2 id="prolife-contant-data">0048 777 888 999</h2>
-            //</div>
-          //</div>
   },
 
   name: function() {
@@ -202,13 +227,13 @@ var Volunteer = React.createClass({
 
 //})
 
-var ExtraAttributesVisible = React.createClass({
-  render: function() {
-    return(
-      <p style={{color: 'red'}}><b>Doświadczenie </b>{this.props.experience}</p>
-    )
-  }
-})
+//var ExtraAttributesVisible = React.createClass({
+  //render: function() {
+    //return(
+      //<p style={{color: 'red'}}><b>Doświadczenie </b>{this.props.experience}</p>
+    //)
+  //}
+//})
 
 // Module.exports instead of normal dom mounting
 module.exports = Volunteer

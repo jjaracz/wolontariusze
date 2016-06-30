@@ -3,14 +3,19 @@ var NavLink = require('fluxible-router').NavLink
 
 var VolunteerStore = require('../../stores/Volunteer')
 var ApplicationStore = require('../../stores/ApplicationStore')
-var updateVolunteer = require('../../actions').updateVolunteer
+var actions = require('../../actions')
 var MyTextField = require('./../Formsy/MyTextField.jsx')
-var request = require('superagent')
 
 var InstagramSetting = React.createClass({
 
+  propTypes: {
+    context: React.PropTypes.object
+  },
+
   getInitialState: function () {
-    return this.props.context.getStore(VolunteerStore).profile
+    return {
+      instagram: this.props.context.getStore(VolunteerStore).profile.instagram
+    }
   },
 
   _changeListener: function() {
@@ -28,55 +33,47 @@ var InstagramSetting = React.createClass({
   },
 
   removeInstagram: function() {
-    this.props.context.executeAction(updateVolunteer, Object.assign(this.state, {
-      instagram: null,
-      insta_state: false
+    var profile = this.props.context.getStore(VolunteerStore).profile
+    this.props.context.executeAction(actions.updateVolunteer, ({
+      id: profile.id,
+      instagram: null
     }))
-
   },
 
   handleSubmit: function(data){
-    var that = this;
-    request
-      .get('/instagram')
-      .query({username: data.name })
-      .end(function(err, resp){
-        console.log(resp);
-        if(resp.status == 200){
-          that.setState({
-            'insta_state': true
-          });
-        }else{
-          that.setState({
-            'insta_state': false
-          });
-          that.refs.form.reset();
-        }
-
-      })
+    var profile = Object.assign({}, this.props.context.getStore(VolunteerStore).profile)
+    profile.instagram = { username: data.username }
+    this.props.context.executeAction(actions.setInstagram, profile)
   },
 
   render: function() {
     var insta_state
     var config = this.props.context.getStore(ApplicationStore)
 
-    if((this.state.instagram && this.state.instagram.id) || this.state.insta_state) {
+    if (this.state.instagram && this.state.instagram.id) {
       insta_state = (
-        <input type="button" value="Usuń" onClick={this.removeInstagram} />
+        <div>
+          <span><a href={'https://www.instagram.com'+this.state.instagram.username}>{this.state.instagram.username}</a></span>
+          <input type="button" value="Usuń" onClick={this.removeInstagram} />
+        </div>
       )
     } else {
       insta_state = (
-          <Formsy.Form ref="form" className="settingsForm" onSubmit={this.handleSubmit}>
+        <Formsy.Form ref="form" className="input-group-container" onSubmit={this.handleSubmit}>
+          <div className="input-group-text">
             <MyTextField required
-              id="name"
-              name="name"
+              id="username"
+              name="username"
               placeholder="Nazwa użytkownika"
               validations="minLength:3"
               validationError="Nazwa jest wymagana" />
-              <button type="submit" className="button">
-                Ustaw
-              </button>
-          </Formsy.Form>
+          </div>
+          <div className="input-group-btn">
+            <button type="submit" className="bg--primary">
+              Ustaw
+            </button>
+          </div>
+        </Formsy.Form>
       )
     }
 

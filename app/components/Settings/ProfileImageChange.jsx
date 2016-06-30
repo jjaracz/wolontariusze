@@ -1,6 +1,6 @@
 var React = require('react')
 var Dropzone = require('react-dropzone')
-var ProfileImage = require('./ProfileImage.jsx')
+var ProfilePic = require('../ProfilePic.jsx')
 var actions = require('../../actions')
 
 var ProfileImageChange = React.createClass({
@@ -22,16 +22,17 @@ var ProfileImageChange = React.createClass({
   },
 
   render: function () {
-    var classNameBtn = 'btn-change-avatar' + (this.state.showDropzone && " hidden"),
-        classNameWrapper = 'avatar-change avatar-change-size-'+this.props.size,
-        classNameFile = "field-file hidden",
-        classDropzone = "dropzone" + (!this.state.showDropzone && " hidden");
+    var classNameBtn = 'btn-change-avatar' + (this.state.showDropzone && ' hidden'),
+      classNameWrapper = 'avatar-change avatar-change-size-'+this.props.size,
+      classNameFile = 'field-file hidden',
+      classDropzone = 'dropzone' + (!this.state.showDropzone && ' hidden')
 
     return (
       <div className={classNameWrapper}>
-        <ProfileImage src={this.props.src} onClick={this.onOpenClick} />
+        <ProfilePic src={this.props.src} className="profilePicSettings" onClick={this.onOpenClick} />
+        <p>Kliknij w zdjęcie aby je zmienić</p>
         <Dropzone ref="dropzone" onDrop={this.onDrop} className={classDropzone}>
-          <div>Kliknij aby wybrać lub upuść tu zdjęcie.</div>
+          <div>Upuść tu zdjęcie.</div>
         </Dropzone>
       </div>
     )

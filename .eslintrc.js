@@ -18,6 +18,10 @@ module.exports = {
         ],
         "no-trailing-spaces": [
             2
+        ],
+        "no-shadow": [
+            2,
+            {"allow": ["err"]}
         ]
     },
     "env": {
@@ -25,10 +29,12 @@ module.exports = {
         "node": true,
         "browser": true
     },
-    "extends": "eslint:recommended",
-    "ecmaFeatures": {
-        "jsx": true,
-        "experimentalObjectRestSpread": true
+    "extends": ["eslint:recommended", "plugin:react/recommended"],
+    "parserOptions": {
+      "ecmaFeatures": {
+          "jsx": true,
+          "experimentalObjectRestSpread": true
+      },
     },
     "plugins": [
         "react"

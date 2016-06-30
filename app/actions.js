@@ -29,6 +29,46 @@ module.exports = {
     )
   },
 
+  showVolunteerActivity: function(context, payload, cb) {
+    var query = {
+      query: {
+        nested: {
+          path: 'doc',
+          query: {
+            bool: {
+              must: [
+                { term: { 'doc.volunteers': payload.id } },
+                { or: [
+                  {
+                    term: {
+                      'doc.is_archived': true
+                    }
+                  }, {
+                    range: {
+                      'doc.datetime': {
+                        lte: 'now'
+                      }
+                    }
+                  }
+                ]}
+              ]
+            }
+          }
+        }
+      }
+    }
+    context.service.create('ActivitiesES', {}, query, function (err, data) {
+      if (err) {
+        debug(err)
+      } else {
+        context.dispatch('LOAD_ACTIVITIES', {
+          all: data
+        })
+      }
+      cb(data)
+    })
+  },
+
   showVolunteers: function(context, payload, cb) {
     // Pobierz dane wolontariusza z bazy danych
     context.service.read('Volunteers', payload, {},
@@ -62,8 +102,10 @@ module.exports = {
 
     context.service.update('Volunteers', {}, volunteer, function (err) {
       if (err) { // Błąd po stronie serwera
+        context.dispatch('SAVE_FLASH_FAILURE', 'Wystąpił nieznany błąd')
         context.dispatch('VOLUNTEER_UPDATE_FAILURE')
       } else {
+        context.dispatch('SAVE_FLASH_SUCCESS', 'Zapisano.')
         context.dispatch('VOLUNTEER_UPDATE_SUCCESS', volunteer)
       }
       cb()
@@ -75,7 +117,7 @@ module.exports = {
 
     r.attach('avatar', payload[0])
     r.end(function(err, resp){
-      console.log(resp)
+      //console.log(resp)
       context.dispatch('VOLUNTEER_UPDATE_SUCCESS', resp.body)
       cb()
     })
@@ -111,7 +153,50 @@ module.exports = {
   loadActivities: function(context, state, cb) {
 
     var must = []
-    var must2 = []
+    var must_not = []
+
+    var finishedQuery = {
+      or: [
+        {
+          term: {
+            'doc.is_archived': true
+          }
+        },
+        {
+          range: {
+            'doc.datetime': {
+              'lte': 'now'
+            }
+          }
+        }
+      ]
+    }
+
+    var availableQuery = {
+      term: {
+        'doc.limit_reached': true
+      }
+    }
+
+    //Jeżeli otwarta jest zakładka Bank Pracy, Biorę Udział w w to potrzeba zwrócić trwające i wolne zadania
+    //a w zakładce Moje Zadania zwracamy wszystkie lub wybrane
+
+    if(!state.created_by) {
+      must_not.push(finishedQuery)
+      must_not.push(availableQuery)
+    } else {
+      if(state.timeState == 'trwajace') {
+        must_not.push(finishedQuery)
+      } else if (state.timeState == 'zakonczone') {
+        must.push(finishedQuery)
+      }
+
+      if(state.availabilityState == 'wolne') {
+        must_not.push(availableQuery)
+      } else if (state.availabilityState == 'pelne') {
+        must.push(availableQuery)
+      }
+    }
 
     if(state.created_by) {
       must.push({
@@ -120,8 +205,43 @@ module.exports = {
     }
 
     if(state.volunteer) {
-      must2.push({
-        term: { 'volunteers': state.volunteer }
+      must.push({
+        term: { 'doc.volunteers': state.volunteer }
+      })
+    }
+
+    if(state.act_type) {
+      must.push({
+        term: { 'doc.act_type': state.act_type }
+      })
+    }
+
+    if(state.priority) {
+      if (state.priority === 'PILNE') {
+        must.push({
+          term: { 'doc.is_urgent': true }
+        })
+      } else {
+        must_not.push({
+          term: { 'doc.is_urgent': true }
+        })
+      }
+    }
+
+    //geo_point w elastic search ma współrzędne [LON, LAT] w przeciwieństwie do [LAT, LON]
+    //nowe pole tworzone jest za pomocą logstash
+    if(state.placeDistance) {
+      must.push({
+        'geo_distance': {
+          'distance': state.placeDistance+'km',
+          'doc.lon_lat': [parseFloat(state.placeLon), parseFloat(state.placeLat)]
+        }
+      })
+    }
+
+    if(state.tags && state.tags.length) {
+      must.push({
+        terms: { 'doc.tags': state.tags }
       })
     }
 
@@ -130,17 +250,9 @@ module.exports = {
         path: 'doc',
         query: {
           bool: {
-            must: must
+            must: must,
+            must_not: must_not
           }
-        }
-      }
-    }
-
-    if(must2.length) {
-      must2.push(query)
-      query = {
-        bool: {
-          must: must2
         }
       }
     }
@@ -178,8 +290,7 @@ module.exports = {
         // TODO tymczasowe rozwiązanie
 
         var Draft = require('draft-js')
-        var blocks = Draft.convertFromRaw(payload.description)
-        var contentState = Draft.ContentState.createFromBlockArray(blocks)
+        var contentState = Draft.convertFromRaw(payload.description)
         payload.description = Draft.EditorState.createWithContent(contentState)
 
         context.dispatch('ACTIVITY_UPDATED', payload)
@@ -193,6 +304,7 @@ module.exports = {
     context.service.update('Activities', {}, payload, function (err, data) {
       if(err) { debug(err) }
       else {
+        context.dispatch('SAVE_FLASH_SUCCESS', 'Aktualizacja do zadania została pomyślnie opublikowana.')
         context.dispatch('UPDATE_ADDED', payload.updates)
         cb()
       }
@@ -202,8 +314,9 @@ module.exports = {
   joinActivity: function(context, payload, cb) {
     context.service.create('Joints', {}, payload, function (err, data) {
       if (err) { // Błąd po stronie serwera
-        //context.dispatch('JOINT_CREATED_FAILURE', [])
+        context.dispatch('SAVE_FLASH_FAILURE', 'Wystąpił nieznany błąd')
       } else {
+        context.dispatch('SAVE_FLASH_SUCCESS', 'Dziękujemy za zgłoszenie!')
         var user = context.getUser()
         context.dispatch('JOINT_CREATED', Object.assign({}, user, {
           id: data.changes[0].new_val.id,
@@ -259,22 +372,15 @@ module.exports = {
     })
   },
 
-  deleteActivity: function(context, payload, cb) {
-    context.service.delete('Activities', payload, {}, function (err, data) {
-      if(err) { debug(err) }
-      else {
-        context.dispatch('ACTIVITY_DELETED', data)
-        context.executeAction(navigateAction, {url: '/zadania'})
-      }
-      cb()
-    })
-  },
-
   createComment: function(context, payload, cb) {
     debug('profile comment create')
     context.service.create('Comments', payload, {}, function (err, data) {
-      if(err) { debug(err) }
-      else { context.dispatch('COMMENT_CREATED', data) }
+      if(err) {
+        debug(err)
+      } else {
+        context.dispatch('SAVE_FLASH_SUCCESS', 'Komentarz do profilu został pomyślnie dodany.')
+        context.dispatch('COMMENT_CREATED', data)
+      }
       cb()
     })
   },
@@ -357,7 +463,7 @@ module.exports = {
       doc_should.push({
         multi_match: {
           query: state.name,
-          fields: ['doc.first_name', 'doc.last_name'],
+          fields: ['doc.first_name', 'doc.last_name']
         }
       })
     }
@@ -386,16 +492,89 @@ module.exports = {
       })
     }
 
-    if(state.departments) {
+    if(state['raw.need_accomodation']) {
+      raw_must.push({
+        term: { 'raw.cd_need_accomodation': true }
+      })
+    }
+    //else {
+    //  raw_must.push({
+    //    term: { 'raw.cd_need_accomodation': false }
+    //  })
+    //}
+    
+    if(state.mobilephone) {
+      raw_must.push({
+        term: { 'raw.rg_mobilephone': state.mobilephone }
+      })
+    }
+
+    if(state.city) {
       raw_should.push({
-        match: { 'raw.cd_sectors': state.departments }
+        match: { 'raw.rg_city': state.city }
+      })
+    }
+
+    if(state.sectors) {
+      raw_should.push({
+        match: { 'raw.cd_sectors': state.sectors }
       })
     }
 
     if(state.skills) {
       raw_should.push({
-        match: { 'raw.sk_skills': state.skills }
+        or: [
+          { match: { 'raw.sk_skills': state.skills }},
+          { match: { 'raw.sk_other_skills': state.skills } }
+        ]
+
       })
+    }
+
+    if(state.languages) {
+      var languages = state.languages
+      for (var i=0; i<languages.length; i++) {
+        var name = languages[i].split('_')[0]
+        var level = languages[i].split('_')[1]
+
+        var terms = function () {
+          switch (level) {
+          case 'basic':
+            return [
+                {'term': {'raw.od_motherlanguage': {'value': name, 'boost': 10 } } },
+                {'term': {'raw.od_languages': {'value': name+'=professional translator, interpreter', 'boost': 8 } } },
+                {'term': {'raw.od_languages': {'value': name+'=excellent', 'boost': 6 } } },
+                {'term': {'raw.od_languages': {'value': name+'=good', 'boost': 4 } } },
+                {'term': {'raw.od_languages': {'value': name+'=basic', 'boost': 2 } } }
+            ]
+          case 'good':
+            return [
+                {'term': {'raw.od_motherlanguage': {'value': name, 'boost': 10 } } },
+                {'term': {'raw.od_languages': {'value': name+'=professional translator, interpreter', 'boost': 8 } } },
+                {'term': {'raw.od_languages': {'value': name+'=excellent', 'boost': 6 } } },
+                {'term': {'raw.od_languages': {'value': name+'=good', 'boost': 4 } } }
+            ]
+          case 'excellent':
+            return [
+                {'term': {'raw.od_motherlanguage': {'value': name, 'boost': 10 } } },
+                {'term': {'raw.od_languages': {'value': name+'=professional translator, interpreter', 'boost': 8 } } },
+                {'term': {'raw.od_languages': {'value': name+'=excellent', 'boost': 6 } } }
+            ]
+          case 'interpreter':
+            return [
+                {'term': {'raw.od_motherlanguage': {'value': name, 'boost': 10} } },
+                {'term': {'raw.od_languages': {'value': name+'=professional translator, interpreter', 'boost': 8 } } }
+            ]
+          default:
+            return [
+                {'term': {'raw.od_motherlanguage': {'value': name, 'boost': 10} } }
+            ]
+          }
+        }()
+        raw_must.push({
+          or: terms
+        })
+      }
     }
 
     var should = []
@@ -430,7 +609,7 @@ module.exports = {
 
     // Nie wpisano żadnego zapytania
     if(!should.length) {
-        return
+      return
     }
 
     var query = {
@@ -540,15 +719,6 @@ module.exports = {
     }
 
     request.send(JSON.stringify(params))
-
-    var base = window.location.toString().replace(new RegExp('[?](.*)$'), '')
-    var attributes = Object.keys(state).filter(function(key) {
-      return state[key]
-    }).map(function(key) {
-      return key + '=' + state[key]
-    }).join('&')
-
-    history.replaceState({}, '', base +'?'+ attributes)
   },
 
   inviteUser: function(context, user) {
@@ -559,10 +729,7 @@ module.exports = {
     request.onload = function() {
       if (request.status >= 200 && request.status < 400) {
         // Success!
-        var resp = request.responseText
-        var json = JSON.parse(resp)
-
-        context.dispatch('INVITATION_SEND', json)
+        context.dispatch('INVITATION_SEND')
       //} else {
       // We reached our target server, but it returned an error
       }
@@ -573,5 +740,41 @@ module.exports = {
     }
 
     request.send(JSON.stringify(query))
+  },
+
+  activateAccount: function(context, state) {
+    var query = { email: state.email }
+    var request = new XMLHttpRequest()
+
+    request.open('POST', '/register', true)
+    request.setRequestHeader('Content-Type', 'application/json')
+    request.onload = function() {
+      var json = JSON.parse(request.responseText)
+      context.dispatch('LOAD_ACCOUNT_ACTIVATION_MESSAGE', {
+        email: state.email,
+        message: json.message
+      })
+    }
+
+    request.onerror = function() {
+      // There was a connection error of some sort
+    }
+
+    request.send(JSON.stringify(query))
+  },
+
+  setInstagram: function(context, data) {
+    request
+      .post('/instagram')
+      .send({ username: data.instagram.username })
+      .end(function(err, resp){
+        if(err) {
+          context.dispatch('SAVE_FLASH_FAILURE', 'Błąd: Podany użytkownik nie został znaleziony.')
+        } else if (resp.body.result) {
+          context.dispatch('LOAD_VOLUNTEER', data)
+        } else {
+          context.dispatch('SAVE_FLASH_FAILURE', 'Wystąpił nieznany błąd.')
+        }
+      })
   }
 }

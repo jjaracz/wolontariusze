@@ -1,5 +1,4 @@
 var React = require('react')
-var update = require('react-addons-update')
 
 var actions = require('../actions')
 var SearchForm = require('./SearchForm.jsx')
@@ -8,6 +7,11 @@ var ResultsStore = require('../stores/Results')
 var ApplicationStore = require('../stores/ApplicationStore')
 
 var Search = React.createClass({
+
+  propTypes: {
+    context: React.PropTypes.object
+  },
+
   getInitialState: function() {
     var state = this.props.context.getStore(ResultsStore).dehydrate()
     state.consent = this.props.context.getStore(ApplicationStore).consent
@@ -57,8 +61,30 @@ var Search = React.createClass({
     })
   },
 
+  handleLanguagesChange: function(languages) {
+    var query = this.state.query
+    query['languages'] = languages.map(function (lang) {return lang.value})
+    //kasuje tekst "languages" z adresu url po usunięciu wybranych języków
+    if(query['languages'].length == 0) {
+      delete query['languages']
+    }
+    this.setState({
+      query: query
+    })
+  },
+
   search: function(){
-    this.props.context.executeAction(actions.showResults, this.state.query)
+    var state = this.state.query
+    this.props.context.executeAction(actions.showResults, state)
+
+    var base = window.location.toString().replace(new RegExp('[?](.*)$'), '')
+    var attributes = Object.keys(state).filter(function(key) {
+      return state[key]
+    }).map(function(key) {
+      return key + '=' + state[key]
+    }).join('&')
+
+    history.replaceState({}, '', base +'?'+ attributes)
   },
 
   consent: function() {
@@ -78,9 +104,7 @@ var Search = React.createClass({
           Potwierdź swoje uprawnienia:
         </p>
 
-        <p>
-          <input type="button" className="button button--bordered border--warning" value="Potwierdzam, kontynuuj..." onClick={this.consent} />
-        </p>
+        <input type="button" className="button bg--warning no-border" value="Potwierdzam, kontynuuj..." onClick={this.consent} />
       </div>
     )
 
@@ -90,7 +114,8 @@ var Search = React.createClass({
           query={this.state.query}
           search={this.search}
           handleChange={this.handleChange}
-          handleCheckboxChange={this.handleCheckboxChange} />
+          handleCheckboxChange={this.handleCheckboxChange}
+          handleLanguagesChange={this.handleLanguagesChange}/>
         <SearchResults results={this.state.all} />
       </div>
     )

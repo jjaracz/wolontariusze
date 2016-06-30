@@ -6,21 +6,26 @@ var ActivitiesStore = createStore({
   storeName: 'Activities',
   handlers: {
     'LOAD_ACTIVITIES' : 'loadAll',
-    'LOAD_ACTIVITIES_QUERY': 'loadQuery'
+    'LOAD_ACTIVITIES_QUERY': 'loadQuery',
   },
 
   initialize: function () {
     this.all = []
-    this.query = {}
+    this.query = {
+      tags: []
+    }
   },
 
   loadAll: function(data) {
-    this.all = data.all
-    this.query = data.query
+    this.all = data.all || {}
+    this.query = data.query || {}
     this.emitChange()
   },
 
   loadQuery: function(data) {
+    if(data.tags) {
+      data.tags = data.tags.split(',')
+    }
     this.query = data
     this.emitChange()
   },
@@ -33,8 +38,9 @@ var ActivitiesStore = createStore({
   },
 
   rehydrate: function (state) {
+    var query = state.query
     this.all = state.all
-    this.query = state.query
+    this.query = query
   }
 })
 

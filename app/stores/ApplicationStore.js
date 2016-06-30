@@ -8,7 +8,6 @@ var ApplicationStore = createStore({
     'UPDATE_PAGE_TITLE'    : 'updatePageTitle',
     'SAVE_FLASH_SUCCESS'   : 'saveSuccess',
     'SAVE_FLASH_FAILURE'   : 'saveFailure',
-    'INSTAGRAM_CONFIG'     : 'setInstagram',
     'ADMIN_CONSENT'        : 'setConsent'
   },
 
@@ -19,11 +18,23 @@ var ApplicationStore = createStore({
   saveFailure: function(message) {
     this.flashFailure = message
     this.emitChange()
+
+    var that = this
+    setTimeout(function() {
+      that.flashFailure = false
+      that.emitChange()
+    }, 7000)
   },
 
   saveSuccess: function(message) {
     this.flashSuccess = message
     this.emitChange()
+
+    var that = this
+    setTimeout(function() {
+      that.flashSuccess = false
+      that.emitChange()
+    }, 7000)
   },
 
   getFailure: function() {
@@ -43,11 +54,6 @@ var ApplicationStore = createStore({
     return this.title
   },
 
-  setInstagram: function(instagram_client_id) {
-    this.instagram_client_id = instagram_client_id
-    this.emitChange()
-  },
-
   setConsent: function() {
     this.consent = true
     this.emitChange()
@@ -61,8 +67,7 @@ var ApplicationStore = createStore({
       route: this.currentRoute,
       title: this.title,
       flashSuccess: this.flashSuccess,
-      flashFailure: this.flashFailure,
-      instagram_client_id: this.instagram_client_id
+      flashFailure: this.flashFailure
     }
   },
 
@@ -78,7 +83,13 @@ var ApplicationStore = createStore({
     this.title = state.title
     this.flashSuccess = state.flashSuccess
     this.flashFailure = state.flashFailure
-    this.instagram_client_id = state.instagram_client_id
+
+    var that = this
+    setTimeout(function() {
+      that.flashSuccess = false
+      that.flashFailure = false
+      that.emitChange()
+    }, 7000)
   }
 })
 
